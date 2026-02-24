@@ -14,27 +14,52 @@ export LOG_EVERY=0
 
 # Write awk stats script to a file to avoid quoting/heredoc issues in tmux.
 cat > "$AWK_FILE" << 'AWKEOF'
+BEGIN { head = 1; n = 0; wsum = 0; wcount = 0; WINDOW = 60 }
 /http_req_duration/ && /"type":"Point"/ {
   if (match($0, /"value":[0-9]+\.?[0-9]*/)) {
     val = substr($0, RSTART+8, RLENGTH-8) + 0
     total++
     # Exclude 0ms (errors/no-response) and near-timeout values (>=59000ms)
     if (val <= 0 || val >= 59000) { skipped++; next }
-    count++; sum += val; avg = sum / count
-    if (count == 1 || val < min) min = val
-    if (val > max) max = val
+
+    now = systime()
+    n++
+    vals[n] = val
+    times[n] = now
+    wsum += val
+    wcount++
+
+    # Expire entries older than WINDOW seconds
+    while (head <= n && times[head] < now - WINDOW) {
+      wsum -= vals[head]
+      wcount--
+      delete vals[head]
+      delete times[head]
+      head++
+    }
+
+    avg = (wcount > 0) ? wsum / wcount : 0
+
+    # Min/max over current window
+    wmin = -1; wmax = -1
+    for (i = head; i <= n; i++) {
+      if (wmin < 0 || vals[i] < wmin) wmin = vals[i]
+      if (vals[i] > wmax) wmax = vals[i]
+    }
+
     printf "\033[H\033[J"
-    printf "  +------------------------------------+\n"
-    printf "  |      k6  Live  Latency             |\n"
-    printf "  +------------------------------------+\n"
-    printf "  |  Counted  : %-8d              |\n", count
-    printf "  |  Excluded : %-8d (0ms/timeout) |\n", skipped
-    printf "  |                                    |\n"
-    printf "  |  Avg      : %-8.1f ms            |\n", avg
-    printf "  |  Min      : %-8.1f ms            |\n", min
-    printf "  |  Max      : %-8.1f ms            |\n", max
-    printf "  |  Last     : %-8.1f ms            |\n", val
-    printf "  +------------------------------------+\n"
+    printf "  +--------------------------------------+\n"
+    printf "  |       k6  Live  Latency (1 min)      |\n"
+    printf "  +--------------------------------------+\n"
+    printf "  |  Window   : %-8d reqs           |\n", wcount
+    printf "  |  Total    : %-8d reqs           |\n", total - skipped
+    printf "  |  Excluded : %-8d (0ms/timeout)  |\n", skipped
+    printf "  |                                      |\n"
+    printf "  |  Avg      : %-8.1f ms             |\n", avg
+    printf "  |  Min      : %-8.1f ms             |\n", wmin
+    printf "  |  Max      : %-8.1f ms             |\n", wmax
+    printf "  |  Last     : %-8.1f ms             |\n", val
+    printf "  +--------------------------------------+\n"
     fflush()
   }
 }
