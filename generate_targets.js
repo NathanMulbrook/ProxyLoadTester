@@ -9,6 +9,7 @@ const path = require('path');
 const OUTPUT_FILE = path.join(__dirname, 'targets.json');
 const SOURCE_URL = 'https://raw.githubusercontent.com/opendns/public-domain-lists/master/opendns-top-1m.csv';
 const DEFAULT_COUNT = 500;
+const SCHEME = process.env.SCHEME || 'http'; // prefer http for proxy compatibility
 
 const countArg = Number.parseInt(process.argv[2], 10);
 const targetCount = Number.isFinite(countArg) ? countArg : Number.parseInt(process.env.TARGET_COUNT, 10) || DEFAULT_COUNT;
@@ -41,7 +42,7 @@ function buildTargets(csv, limit) {
     const parts = line.split(',');
     const domain = parts.length > 1 ? parts[1].trim() : parts[0].trim();
     if (!domain) continue;
-    targets.push(`https://${domain}/`);
+    targets.push(`${SCHEME}://${domain}/`);
   }
   return targets;
 }

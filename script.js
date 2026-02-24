@@ -9,6 +9,7 @@ const LONG_LIVED_RATIO = 0.3;
 // Proxy endpoint: use env if provided; fallback to on-prem proxy.
 const DEFAULT_PROXY = 'http://199.100.16.100:3128';
 let proxyWarned = false;
+const LOG_EVERY = Number(__ENV.LOG_EVERY || 0); // set to e.g. 100 to log every 100th iteration
 // k6 allows setting env vars at runtime; this ensures proxy is set even if the shell didn't export it.
 if (!__ENV.K6_HTTP_PROXY && !__ENV.HTTP_PROXY) {
   __ENV.K6_HTTP_PROXY = DEFAULT_PROXY;
@@ -34,6 +35,15 @@ export const options = {
   discardResponseBodies: true,
 };
 
+function pickUrl() {
+  const raw = targets[Math.floor(Math.random() * targets.length)];
+  if (!raw) return null;
+  // Force http to improve proxy compatibility; many top-1M entries lack HTTPS.
+  if (raw.startsWith('https://')) return raw.replace(/^https:/i, 'http:');
+  if (raw.startsWith('http://')) return raw;
+  return `http://${raw}`;
+}
+
 export default function () {
   const proxyConfigured = __ENV.K6_HTTP_PROXY || __ENV.K6_HTTPS_PROXY;
   if (!proxyConfigured && !proxyWarned) {
@@ -41,7 +51,12 @@ export default function () {
     proxyWarned = true;
   }
 
-  const url = targets[Math.floor(Math.random() * targets.length)];
+  const url = pickUrl();
+  if (!url) {
+    console.error('No targets available');
+    sleep(1);
+    return;
+  }
   const longLived = Math.random() < LONG_LIVED_RATIO;
 
   const params = longLived
@@ -55,11 +70,24 @@ export default function () {
         timeout: '5s',
       };
 
-  const res = http.get(url, params);
+  let res;
+  try {
+    res = http.get(url, params);
+  } catch (err) {
+    if (LOG_EVERY) {
+      console.warn(`request error for ${url}: ${err}`);
+    }
+    sleep(longLived ? 0.8 : 0.2);
+    return;
+  }
 
   check(res, {
     'status is 2xx/3xx': (r) => r.status >= 200 && r.status < 400,
   });
+
+  if (LOG_EVERY && (__ITER % LOG_EVERY === 0)) {
+    console.log(`iter ${__ITER} ${url} status=${res.status} dur=${res.timings.duration.toFixed(1)}ms`);
+  }
 
   // Add pacing to keep per-VU RPS moderate while the arrival-rate executor caps total RPS.
   sleep(longLived ? 0.8 : 0.2);
