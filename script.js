@@ -6,6 +6,17 @@ const targets = JSON.parse(open('./targets.json'));
 
 // Fraction of iterations that should keep connections alive.
 const LONG_LIVED_RATIO = 0.3;
+// Proxy endpoint: use env if provided; fallback to on-prem proxy.
+const DEFAULT_PROXY = 'http://199.100.16.100:3128';
+// k6 allows setting env vars at runtime; this ensures proxy is set even if the shell didn't export it.
+if (!__ENV.K6_HTTP_PROXY && !__ENV.HTTP_PROXY) {
+  __ENV.K6_HTTP_PROXY = DEFAULT_PROXY;
+  __ENV.HTTP_PROXY = DEFAULT_PROXY;
+}
+if (!__ENV.K6_HTTPS_PROXY && !__ENV.HTTPS_PROXY) {
+  __ENV.K6_HTTPS_PROXY = DEFAULT_PROXY;
+  __ENV.HTTPS_PROXY = DEFAULT_PROXY;
+}
 
 export const options = {
   scenarios: {
@@ -23,6 +34,12 @@ export const options = {
 };
 
 export default function () {
+  const proxyConfigured = __ENV.K6_HTTP_PROXY || __ENV.K6_HTTPS_PROXY;
+  if (!proxyConfigured && !proxyWarned) {
+    console.warn(`Proxy not set; export K6_HTTP_PROXY and K6_HTTPS_PROXY (e.g., ${DEFAULT_PROXY})`);
+    proxyWarned = true;
+  }
+
   const url = targets[Math.floor(Math.random() * targets.length)];
   const longLived = Math.random() < LONG_LIVED_RATIO;
 
