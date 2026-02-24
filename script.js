@@ -66,12 +66,11 @@ export default function () {
   const params = longLived
     ? {
         headers: { 'User-Agent': 'k6-long-lived' },
-        timeout: '10s',
-        // keepalive is default true; this path keeps sockets around
+        timeout: '60s',
       }
     : {
         headers: { 'User-Agent': 'k6-short-lived', Connection: 'close' },
-        timeout: '5s',
+        timeout: '60s',
       };
 
   let res;

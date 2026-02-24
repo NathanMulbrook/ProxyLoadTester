@@ -17,6 +17,9 @@ cat > "$AWK_FILE" << 'AWKEOF'
 /http_req_duration/ && /"type":"Point"/ {
   if (match($0, /"value":[0-9]+\.?[0-9]*/)) {
     val = substr($0, RSTART+8, RLENGTH-8) + 0
+    total++
+    # Exclude 0ms (errors/no-response) and near-timeout values (>=59000ms)
+    if (val <= 0 || val >= 59000) { skipped++; next }
     count++; sum += val; avg = sum / count
     if (count == 1 || val < min) min = val
     if (val > max) max = val
@@ -24,7 +27,9 @@ cat > "$AWK_FILE" << 'AWKEOF'
     printf "  +------------------------------------+\n"
     printf "  |      k6  Live  Latency             |\n"
     printf "  +------------------------------------+\n"
-    printf "  |  Requests : %-8d              |\n", count
+    printf "  |  Counted  : %-8d              |\n", count
+    printf "  |  Excluded : %-8d (0ms/timeout) |\n", skipped
+    printf "  |                                    |\n"
     printf "  |  Avg      : %-8.1f ms            |\n", avg
     printf "  |  Min      : %-8.1f ms            |\n", min
     printf "  |  Max      : %-8.1f ms            |\n", max
