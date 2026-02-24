@@ -9,7 +9,7 @@ const LONG_LIVED_RATIO = 0.3;
 // Proxy endpoint: use env if provided; fallback to on-prem proxy.
 const DEFAULT_PROXY = 'http://199.100.16.100:3128';
 let proxyWarned = false;
-const LOG_EVERY = Number(__ENV.LOG_EVERY || 0); // set to e.g. 100 to log every 100th iteration
+const LOG_EVERY = Number(__ENV.LOG_EVERY || 100); // default to log every 100th iteration
 // k6 allows setting env vars at runtime; this ensures proxy is set even if the shell didn't export it.
 if (!__ENV.K6_HTTP_PROXY && !__ENV.HTTP_PROXY) {
   __ENV.K6_HTTP_PROXY = DEFAULT_PROXY;
