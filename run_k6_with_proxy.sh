@@ -80,10 +80,19 @@ fi
 SESSION="k6run_$$"
 tmux new-session -d -s "$SESSION" -x 220 -y 50
 
-# Bottom pane (35%): live latency stats
+# Split bottom 35% for stats + curl row
 tmux split-window -v -p 35 -t "$SESSION:0"
+
+# Split bottom row in half: left=latency stats, right=curl monitor
+tmux split-window -h -p 50 -t "$SESSION:0.1"
+
+# Bottom-left: rolling latency stats
 tmux send-keys -t "$SESSION:0.1" \
   "tail -f '$METRICS_FILE' | awk -f '$AWK_FILE'" Enter
+
+# Bottom-right: continuous curl of google through the proxy, once per second
+tmux send-keys -t "$SESSION:0.2" \
+  "while true; do ms=\$(curl -o /dev/null -s -w '%{time_total}' -x '$K6_HTTP_PROXY' https://www.google.com); printf '[%s] google via proxy: %ss\n' \"\$(date +%H:%M:%S)\" \"\$ms\"; sleep 1; done" Enter
 
 # Top pane: k6
 tmux send-keys -t "$SESSION:0.0" \
