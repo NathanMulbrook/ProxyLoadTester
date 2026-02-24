@@ -28,11 +28,11 @@ export const options = {
   scenarios: {
     steady_load: {
       executor: 'constant-arrival-rate',
-      rate: 400, // target requests per second; tune up/down as needed
+      rate: 800, // target requests per second; tune up/down as needed
       timeUnit: '1s',
       duration: '30m',
       preAllocatedVUs: 60,
-      maxVUs: 300, // cap active users to avoid DoS-like surges
+      maxVUs: 900, // cap active users to avoid DoS-like surges
       gracefulStop: '30s',
     },
   },
