@@ -21,6 +21,7 @@ if (!__ENV.K6_HTTPS_PROXY && !__ENV.HTTPS_PROXY) {
 }
 
 export const options = {
+  insecureSkipTLSVerify: false, // enforce TLS validation; proxy is not intercepting
   scenarios: {
     steady_load: {
       executor: 'constant-arrival-rate',
