@@ -10,6 +10,9 @@ const LONG_LIVED_RATIO = 0.3;
 const DEFAULT_PROXY = 'http://199.100.16.100:3128';
 let proxyWarned = false;
 const LOG_EVERY = Number(__ENV.LOG_EVERY || 1); // default to log every iteration for live latency
+const RUN_AVG_EVERY = Number(__ENV.RUN_AVG_EVERY || 50); // print running average every N iterations
+let aggCount = 0;
+let aggDurationMs = 0;
 // k6 allows setting env vars at runtime; this ensures proxy is set even if the shell didn't export it.
 if (!__ENV.K6_HTTP_PROXY && !__ENV.HTTP_PROXY) {
   __ENV.K6_HTTP_PROXY = DEFAULT_PROXY;
@@ -88,6 +91,14 @@ export default function () {
 
   if (LOG_EVERY && (__ITER % LOG_EVERY === 0)) {
     console.log(`iter ${__ITER} ${url} status=${res.status} dur=${res.timings.duration.toFixed(1)}ms`);
+  }
+
+  // Accumulate and periodically print running average latency for readability.
+  aggCount += 1;
+  aggDurationMs += res.timings.duration;
+  if (RUN_AVG_EVERY && aggCount % RUN_AVG_EVERY === 0) {
+    const avg = aggDurationMs / aggCount;
+    console.log(`avg over ${aggCount} reqs: ${avg.toFixed(1)}ms`);
   }
 
   // Add pacing to keep per-VU RPS moderate while the arrival-rate executor caps total RPS.
